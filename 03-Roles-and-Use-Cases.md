@@ -15,7 +15,7 @@
 
 ```mermaid
 graph TD
-    Player(Игрок)
+    Player[Игрок]
 
     subgraph "Система 'Хроники Пустоши'"
         UC1("Начать новую вылазку")
@@ -28,12 +28,12 @@ graph TD
         UC8("Погибнуть в Зоне (Permadeath)")
     end
 
-    Player -- UC1
-    Player -- UC2
-    Player -- UC3
-    Player -- UC4
-    Player -- UC5
-    Player -- UC6
-    Player -- UC7
-    Player -- UC8
+    Player --> UC1
+    Player --> UC2
+    Player --> UC3
+    Player --> UC4
+    Player --> UC5
+    Player --> UC6
+    Player --> UC7
+    Player --> UC8
 ```
