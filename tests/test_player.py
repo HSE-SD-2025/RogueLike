@@ -28,4 +28,44 @@ def test_player_inventory():
     assert used
     assert "Medkit" not in p.inventory
     not_used = p.use_item("Nonexistent")
-    assert not not_used 
+    assert not not_used
+
+def test_player_equipment():
+    p = Player()
+    p.add_item("Pistol")
+    p.add_item("Jacket")
+    assert p.equip_item("Pistol")
+    assert p.weapon == "Pistol"
+    assert "Pistol" not in p.inventory
+    assert p.equip_item("Jacket")
+    assert p.armor == "Jacket"
+    assert "Jacket" not in p.inventory
+    assert p.unequip_item("weapon")
+    assert p.weapon is None
+    assert "Pistol" in p.inventory
+    assert p.unequip_item("armor")
+    assert p.armor is None
+    assert "Jacket" in p.inventory
+
+def test_player_artifact_bonus():
+    p = Player()
+    p.add_artifact("Heart of Zone")
+    assert p.max_hp == 110
+    assert "Heart of Zone" in p.artifacts
+
+def test_player_radiation():
+    p = Player()
+    p.radiation = 20
+    p.heal_radiation(15)
+    assert p.radiation == 5
+    p.heal_radiation(10)
+    assert p.radiation == 0
+
+def test_player_bonuses():
+    p = Player()
+    assert p.get_attack_bonus() == 0.0
+    assert p.get_defense_bonus() == 0
+    p.weapon = "Rifle"
+    p.armor = "Suit"
+    assert p.get_attack_bonus() == 0.2
+    assert p.get_defense_bonus() == 10 
