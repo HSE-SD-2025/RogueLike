@@ -4,6 +4,7 @@ import random
 from roguelike.world import World, MUTANT_TYPES, ANOMALY_TYPES, ITEM_POOL
 from roguelike.player import Player
 from roguelike.persistence import save_game
+import os
 
 BG_COLOR = (30, 30, 30)
 PANEL_COLOR = (45, 45, 60, 220)
@@ -59,6 +60,20 @@ class GameUI:
         self.game_over = False
         self.popup = None  # (title, options, callback)
         self.handle_sector_event()  # обработка событий при старте
+        # Загрузка иконок
+        asset_dir = os.path.join(os.path.dirname(__file__), 'assets')
+        def load_icon(name):
+            return pygame.image.load(os.path.join(asset_dir, name)).convert_alpha()
+        self.icons = {
+            'base': load_icon('base.png'),
+            'forest': load_icon('forest.png'),
+            'swamp': load_icon('swamp.png'),
+            'factory': load_icon('factory.png'),
+            'mutant': load_icon('mutant.png'),
+            'item': load_icon('item.png'),
+            'artifact': load_icon('artifact.png'),
+            'player': load_icon('player.png'),
+        }
 
     def get_layout(self):
         width, height = self.screen.get_size()
@@ -112,57 +127,24 @@ class GameUI:
         if border:
             pygame.draw.rect(self.screen, BORDER_COLOR, rect, 2)
 
-    def draw_buttons(self, mouse_pos, btns_origin):
-        btn_rects = []
-        # Адаптивный отступ между кнопками
-        height = self.screen.get_height()
-        total_btns = len(self.sector_event_buttons) + len(BASE_BUTTONS)
-        max_btn_area = height - btns_origin[1] - 20
-        min_btn_height = 28
-        btn_height = min(35, max(min_btn_height, max_btn_area // max(1, total_btns)))
-        btn_font = pygame.font.SysFont(None, max(18, btn_height-7))
-        for i, (label, _) in enumerate(self.sector_event_buttons):
-            rect = pygame.Rect(btns_origin[0], btns_origin[1] + i*btn_height, 320, btn_height)
-            color = BUTTON_HOVER if rect.collidepoint(mouse_pos) else BUTTON_COLOR
-            pygame.draw.rect(self.screen, color, rect, border_radius=7)
-            pygame.draw.rect(self.screen, BORDER_COLOR, rect, 2, border_radius=7)
-            self.draw_text(label, rect.x + 10, rect.y + 5, BUTTON_TEXT, font=btn_font)
-            btn_rects.append((rect, self.sector_event_buttons[i][1]))
-        for i, label in enumerate(BASE_BUTTONS):
-            idx = len(self.sector_event_buttons)+i
-            rect = pygame.Rect(btns_origin[0], btns_origin[1] + idx*btn_height, 320, btn_height)
-            if rect.y + btn_height > height - 10:
-                continue  # Не рисуем кнопку, если не влезает
-            color = BUTTON_HOVER if rect.collidepoint(mouse_pos) else BUTTON_COLOR
-            pygame.draw.rect(self.screen, color, rect, border_radius=7)
-            pygame.draw.rect(self.screen, BORDER_COLOR, rect, 2, border_radius=7)
-            self.draw_text(label, rect.x + 10, rect.y + 5, BUTTON_TEXT, font=btn_font)
-            btn_rects.append((rect, label))
-        return btn_rects
-
-    def draw_status(self, status_rect):
-        self.draw_panel(status_rect, PANEL_COLOR)
-        y = status_rect.y + 20
-        self.draw_text(f"HP: {self.player.hp}/{self.player.max_hp} | Радиация: {self.player.radiation}", status_rect.x+20, y, max_width=status_rect.width-40)
-        y += 40
-        self.draw_text("Инвентарь:", status_rect.x+20, y)
-        inv = ', '.join(map(str, self.player.inventory))
-        inv_lines = [inv[i:i+38] for i in range(0, len(inv), 38)] or ['']
-        for line in inv_lines:
-            y += 30
-            self.draw_text(line, status_rect.x+40, y, max_width=status_rect.width-60)
-        y += 30
-        self.draw_text(f"Оружие: {self.player.weapon} | Броня: {self.player.armor}", status_rect.x+20, y, max_width=status_rect.width-40)
-        y += 40
-        self.draw_text("Квест: Найти артефакт и вернуться на базу", status_rect.x+20, y, max_width=status_rect.width-40)
-        y += 40
-        sector = self.map[self.player_pos]
-        self.draw_text(f"Сектор: {sector['type']} | {sector['description']}", status_rect.x+20, y, max_width=status_rect.width-40)
-        y += 30
-        pygame.draw.line(self.screen, BORDER_COLOR, (status_rect.x+10, y), (status_rect.x+status_rect.width-10, y), 2)
-        if self.game_over:
-            y += 20
-            self.draw_text("ВЫ ПОГИБЛИ! Игра окончена.", status_rect.x+20, y, (255, 60, 60), self.msg_font)
+    def draw_sector_icon(self, surface, rect, sector_type, has_mutant, has_item, has_artifact, is_player):
+        icon = None
+        if has_mutant:
+            icon = self.icons.get('mutant')
+        elif has_item:
+            icon = self.icons.get('item')
+        elif has_artifact:
+            icon = self.icons.get('artifact')
+        else:
+            icon = self.icons.get(sector_type)
+        if icon:
+            icon_surf = pygame.transform.smoothscale(icon, (rect.width-8, rect.height-8))
+            surface.blit(icon_surf, (rect.x+4, rect.y+4))
+        if is_player:
+            player_icon = self.icons.get('player')
+            if player_icon:
+                player_surf = pygame.transform.smoothscale(player_icon, (rect.width-16, rect.height-16))
+                surface.blit(player_surf, (rect.x+8, rect.y+8))
 
     def draw_map(self, map_rect, cell_size):
         self.draw_panel(map_rect, MAP_PANEL_COLOR)
@@ -179,8 +161,92 @@ class GameUI:
                 else:
                     pygame.draw.rect(self.screen, (80, 80, 80), rect, 1, border_radius=6)
                 if sector:
-                    self.draw_text(sector['type'][0].upper(), rect.x + cell_size//2-10, rect.y + cell_size//2-10, (255,255,255))
+                    self.draw_sector_icon(
+                        self.screen, rect, sector['type'],
+                        sector.get('mutant'), sector.get('item'), sector.get('artifact'), (x, y) == self.player_pos
+                    )
         self.draw_text("Мини-карта (вы — жёлтая рамка)", map_rect.x+10, map_rect.y-30, (180, 180, 255))
+        self.draw_text("Символы на мини-карте соответствуют объектам.", map_rect.x, map_rect.y + map_rect.height + 10, (180, 180, 180))
+
+    def draw_button_icon(self, surface, rect, label):
+        cx, cy = rect.x+18, rect.y+rect.height//2
+        if "аптечк" in label:
+            pygame.draw.rect(surface, (220,40,40), (cx-8,cy-8,16,16), border_radius=4)
+            pygame.draw.rect(surface, (255,255,255), (cx-3,cy-8,6,16))
+            pygame.draw.rect(surface, (255,255,255), (cx-8,cy-3,16,6))
+        elif "антирад" in label:
+            pygame.draw.circle(surface, (40,180,40), (cx,cy), 9)
+            pygame.draw.line(surface, (255,255,255), (cx-5,cy), (cx+5,cy), 2)
+        elif "Экип" in label:
+            pygame.draw.polygon(surface, (180,180,60), [(cx-8,cy+8),(cx,cy-8),(cx+8,cy+8)])
+        elif "Снять" in label:
+            pygame.draw.rect(surface, (120,120,120), (cx-8,cy-6,16,12),2)
+        elif "Сохран" in label:
+            pygame.draw.rect(surface, (60,60,120), (cx-8,cy-8,16,16))
+            pygame.draw.rect(surface, (255,255,255), (cx-6,cy-6,12,8))
+        elif "Выйти" in label:
+            pygame.draw.line(surface, (255,255,255), (cx-8,cy-8), (cx+8,cy+8), 2)
+            pygame.draw.line(surface, (255,255,255), (cx+8,cy-8), (cx-8,cy+8), 2)
+
+    def draw_buttons(self, mouse_pos, btns_origin):
+        btn_rects = []
+        height = self.screen.get_height()
+        total_btns = len(self.sector_event_buttons) + len(BASE_BUTTONS)
+        max_btn_area = height - btns_origin[1] - 20
+        min_btn_height = 28
+        btn_height = min(35, max(min_btn_height, max_btn_area // max(1, total_btns)))
+        btn_font = pygame.font.SysFont(None, max(18, btn_height-7))
+        for i, (label, _) in enumerate(self.sector_event_buttons):
+            rect = pygame.Rect(btns_origin[0], btns_origin[1] + i*btn_height, 320, btn_height)
+            color = BUTTON_HOVER if rect.collidepoint(mouse_pos) else BUTTON_COLOR
+            pygame.draw.rect(self.screen, color, rect, border_radius=7)
+            pygame.draw.rect(self.screen, BORDER_COLOR, rect, 2, border_radius=7)
+            self.draw_button_icon(self.screen, rect, label)
+            self.draw_text(label, rect.x + 36, rect.y + 5, BUTTON_TEXT, font=btn_font)
+            btn_rects.append((rect, self.sector_event_buttons[i][1]))
+        for i, label in enumerate(BASE_BUTTONS):
+            idx = len(self.sector_event_buttons)+i
+            rect = pygame.Rect(btns_origin[0], btns_origin[1] + idx*btn_height, 320, btn_height)
+            if rect.y + btn_height > height - 10:
+                continue
+            color = BUTTON_HOVER if rect.collidepoint(mouse_pos) else BUTTON_COLOR
+            pygame.draw.rect(self.screen, color, rect, border_radius=7)
+            pygame.draw.rect(self.screen, BORDER_COLOR, rect, 2, border_radius=7)
+            self.draw_button_icon(self.screen, rect, label)
+            self.draw_text(label, rect.x + 36, rect.y + 5, BUTTON_TEXT, font=btn_font)
+            btn_rects.append((rect, label))
+        return btn_rects
+
+    def draw_status(self, status_rect):
+        self.draw_panel(status_rect, PANEL_COLOR)
+        y = status_rect.y + 20
+        self.draw_text(f"Здоровье: {self.player.hp}/{self.player.max_hp} | Радиация: {self.player.radiation}", status_rect.x+20, y, max_width=status_rect.width-40)
+        y += 40
+        self.draw_text("Инвентарь:", status_rect.x+20, y)
+        inv = ', '.join(map(str, self.player.inventory))
+        inv_lines = [inv[i:i+38] for i in range(0, len(inv), 38)] or ['']
+        for line in inv_lines:
+            y += 30
+            self.draw_text(line, status_rect.x+40, y, max_width=status_rect.width-60)
+        y += 30
+        self.draw_text(f"Оружие: {self.player.weapon} | Броня: {self.player.armor}", status_rect.x+20, y, max_width=status_rect.width-40)
+        y += 40
+        self.draw_text("Квест: Найти артефакт и вернуться на базу", status_rect.x+20, y, max_width=status_rect.width-40)
+        y += 40
+        sector = self.map[self.player_pos]
+        # Описание сектора на русском
+        desc = {
+            'base': 'База сталкеров. Здесь можно отдохнуть и сохранить игру.',
+            'forest': 'Лес. Густые деревья и опасные аномалии.',
+            'swamp': 'Болото. Влажно и опасно.',
+            'factory': 'Завод. Руины и мутанты.'
+        }.get(sector['type'], '')
+        self.draw_text(f"Сектор: {sector['type']} | {desc}", status_rect.x+20, y, max_width=status_rect.width-40)
+        y += 30
+        pygame.draw.line(self.screen, BORDER_COLOR, (status_rect.x+10, y), (status_rect.x+status_rect.width-10, y), 2)
+        if self.game_over:
+            y += 20
+            self.draw_text("ВЫ ПОГИБЛИ! Игра окончена.", status_rect.x+20, y, (255, 60, 60), self.msg_font)
 
     def draw_popup(self):
         if not self.popup:

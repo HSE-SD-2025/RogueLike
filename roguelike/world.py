@@ -40,7 +40,13 @@ class World:
             mutant = random.choice([True, False])
             mutant_type = random.choice(MUTANT_TYPES)[0] if mutant else None
         artifact = 'Heart of Zone' if random.random() < 0.1 else None
-        item = random.choice(ITEM_POOL)
+        if sector_id == 1 or sector_type == 'base':
+            item = None
+        else:
+            if random.random() < 0.25:
+                item = random.choice(ITEM_POOL[:-1])
+            else:
+                item = None
         sector = {
             'name': f'Sector {sector_id}' if sector_type != 'base' else 'Base',
             'type': sector_type,
